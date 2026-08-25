@@ -17,12 +17,3 @@ Este proyecto fue construido utilizando tecnologías web modernas:
 *   React
 *   Vite
 *   Firebase
-
-## 🛠️ Cómo ejecutar el proyecto localmente
-
-Si deseas descargar el código y probarlo en tu propia computadora, sigue estos pasos:
-
-1. Asegúrate de tener Node.js instalado.
-2. Instala las dependencias del proyecto:
-   ```bash
-   npm install
