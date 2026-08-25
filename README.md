@@ -1,19 +1,20 @@
-# 👾 Mundo Mobilador
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+</div>
 
-¡Te damos la bienvenida a **Mundo Mobilador**! El lugar donde encontrarás mapeadores con acceso VIP. 
+# Run and deploy your AI Studio app
 
-Somos la comunidad principal dedicada a centralizar, organizar y compartir las mejores versiones y codificaciones de herramientas de mapeo para dispositivos móviles.
+This contains everything you need to run your app locally.
 
-## 🚀 Características Principales
+View your app in AI Studio: https://ai.studio/apps/bc82c7ce-6308-4bc1-9820-2f5096a7cede
 
-*   🎮 **Herramientas de Mapeo:** Encuentra las mejores versiones de *Panda Mouse Pro*, *GG Mouse Pro* y muchas más.
-*   🆓 **100% Gratuito:** Explora nuestro catálogo, todo el contenido está disponible sin costo.
-*   ⬆️ **Sube tu APK:** Contribuye a la plataforma subiendo tus propias versiones y codificaciones.
-*   🌐 **Comunidad de Creadores:** Un espacio diseñado para conectar a creadores de mods con usuarios.
+## Run Locally
 
-## 💻 Tecnologías Utilizadas
+**Prerequisites:**  Node.js
 
-Este proyecto fue construido utilizando tecnologías web modernas:
-*   React
-*   Vite
-*   Firebase
+
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`
