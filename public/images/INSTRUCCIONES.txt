@@ -1,0 +1,9 @@
+¡Hola! Para que tus imágenes funcionen automáticamente, por favor sube tus archivos en esta carpeta (public/images) con los siguientes nombres exactos (en minúsculas):
+
+1. hero.png  -> Esta será tu imagen de Yautja que se mueve en 3D al inicio.
+2. panda.png -> Imagen para la categoría Panda Mouse.
+3. gg.png    -> Imagen para la categoría GG Mouse.
+4. sskey.png -> Imagen para la categoría SSkey.
+5. otros.png -> Imagen para la categoría Otros.
+
+*Nota: Se recomienda usar formato PNG con fondo transparente, especialmente para el hero.png. Si subes imágenes .jpg, asegúrate de renombrarlas o avisarme para actualizar el código.
