@@ -39,7 +39,7 @@ export function useFirebase() {
 
   // Listen to mods
   useEffect(() => {
-    const q = query(collection(db, 'mods'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'mods'), orderBy('uploadDate', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const loadedMods: ModApk[] = [];
       snapshot.forEach((doc) => {
