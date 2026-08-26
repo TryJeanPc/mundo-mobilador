@@ -1,33 +1,18 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <!-- Esta línea es clave para que se vea bien en celulares -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meme</title>
-    <style>
-        /* Quitamos los bordes blancos del navegador y hacemos que ocupe el 100% */
-        html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #000; /* Fondo negro para que el meme resalte más */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden; /* Evita que aparezcan barras de desplazamiento */
-        }
-
-        /* Hacemos que la imagen crezca al máximo posible sin cortarse ni deformarse */
-        img {
-            width: 100vw;
-            height: 100vh;
-            object-fit: contain; 
-        }
-    </style>
-</head>
-<body>
-    <img src="/images/images.jpeg" alt="Meme">
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mundo Mobilador | Repositorio</title>
+    <meta name="description" content="El mejor repositorio de mods y mappers." />
+    <meta property="og:title" content="Mundo Mobilador" />
+    <meta property="og:description" content="El mejor repositorio de mods y mappers." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
+
