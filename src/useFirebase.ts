@@ -85,10 +85,12 @@ export function useFirebase() {
     if (!isAdmin || !user) return;
     try {
       const modRef = doc(collection(db, 'mods'));
+      const cleanMod = Object.fromEntries(Object.entries(mod).filter(([_, v]) => v !== undefined));
       await setDoc(modRef, {
-        ...mod,
+        ...cleanMod,
         createdBy: user.uid
       });
+      alert("¡Mod guardado con éxito en la base de datos!");
     } catch (error: any) {
       console.error("Error adding mod", error);
       alert("Error de permisos de Firebase al subir el Mod. Revisa las reglas de seguridad.\nDetalle: " + error.message);
@@ -119,7 +121,9 @@ export function useFirebase() {
     if (!isAdmin) return;
     try {
       const authorRef = doc(collection(db, 'authors'));
-      await setDoc(authorRef, author);
+      const cleanAuthor = Object.fromEntries(Object.entries(author).filter(([_, v]) => v !== undefined));
+      await setDoc(authorRef, cleanAuthor);
+      alert("¡Creador guardado con éxito en la base de datos!");
     } catch (error: any) {
       console.error("Error adding author", error);
       alert("Error de permisos de Firebase al crear el Creador. Revisa las reglas de seguridad.\nDetalle: " + error.message);
