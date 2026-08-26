@@ -1,6 +1,0 @@
-{
-  "name": "Mundo Mobilador",
-  "description": "Repositorio comunitario para organizar y compartir versiones modificadas de APKs y Gamepad Mappers.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
