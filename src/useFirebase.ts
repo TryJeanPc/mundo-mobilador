@@ -89,8 +89,9 @@ export function useFirebase() {
         ...mod,
         createdBy: user.uid
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding mod", error);
+      alert("Error de permisos de Firebase al subir el Mod. Revisa las reglas de seguridad.\nDetalle: " + error.message);
     }
   };
 
@@ -98,8 +99,9 @@ export function useFirebase() {
     if (!isAdmin) return;
     try {
       await deleteDoc(doc(db, 'mods', modId));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting mod", error);
+      alert("Error al eliminar Mod: " + error.message);
     }
   };
 
@@ -118,8 +120,9 @@ export function useFirebase() {
     try {
       const authorRef = doc(collection(db, 'authors'));
       await setDoc(authorRef, author);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding author", error);
+      alert("Error de permisos de Firebase al crear el Creador. Revisa las reglas de seguridad.\nDetalle: " + error.message);
     }
   };
 
