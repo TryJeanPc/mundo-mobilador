@@ -74,12 +74,8 @@ export default function App() {
   // Hierarchy Data Extraction
   const currentCategoryAuthors = useMemo(() => {
     if (!selectedCategory) return [];
-    // We show authors that belong to the selected category OR have mods in this category
-    const modsInCategory = mods.filter(m => m.category === selectedCategory);
-    const authorNamesWithMods = new Set(modsInCategory.map(m => m.author));
-    
-    return authors.filter(a => a.category === selectedCategory || authorNamesWithMods.has(a.name));
-  }, [mods, authors, selectedCategory]);
+    return authors.filter(a => a.category === selectedCategory);
+  }, [authors, selectedCategory]);
 
   const currentApks = useMemo(() => {
     if (!selectedCategory || !selectedCreator) return [];
