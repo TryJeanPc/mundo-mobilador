@@ -22,7 +22,7 @@ import { useFirebase } from './useFirebase';
 export default function App() {
   const { 
     user, isAdmin, loading, 
-    mods, authors, comments, commentsSyncPending,
+    mods, authors, comments,
     login, logout, 
     addMod, updateMod, deleteMod, incrementDownload, 
     addAuthor, updateAuthor, deleteAuthor,
@@ -602,7 +602,6 @@ export default function App() {
         mods={mods}
         currentUser={user}
         isAdmin={isAdmin}
-        commentsSyncPending={commentsSyncPending}
         onAddComment={addComment}
         onDeleteComment={deleteComment}
         onTogglePinComment={togglePinComment}

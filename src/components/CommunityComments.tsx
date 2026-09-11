@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   MessageSquare, Send, Tag, Trash2, User, Loader2, Clock, CheckCircle2, 
-  ShieldCheck, Sparkles, Filter, Pin, Reply, CornerDownRight, Smile,
-  AlertTriangle, Copy, ExternalLink, ChevronDown, ChevronUp
+  ShieldCheck, Sparkles, Filter, Pin, Reply, CornerDownRight, Smile
 } from 'lucide-react';
 import { Comment, ModApk, CommentReply } from '../types';
 
@@ -11,7 +10,6 @@ interface CommunityCommentsProps {
   mods: ModApk[];
   currentUser: { displayName?: string | null; photoURL?: string | null; uid?: string } | null;
   isAdmin: boolean;
-  commentsSyncPending?: boolean;
   onAddComment: (data: {
     authorName: string;
     content: string;
@@ -39,7 +37,6 @@ export const CommunityComments: React.FC<CommunityCommentsProps> = ({
   mods,
   currentUser,
   isAdmin,
-  commentsSyncPending = false,
   onAddComment,
   onDeleteComment,
   onTogglePinComment,
@@ -55,56 +52,12 @@ export const CommunityComments: React.FC<CommunityCommentsProps> = ({
   const [filterModId, setFilterModId] = useState('ALL');
   const [justSubmitted, setJustSubmitted] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [rulesCopied, setRulesCopied] = useState(false);
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   // Reply state
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
   const [replyAuthor, setReplyAuthor] = useState('');
   const [replyContent, setReplyContent] = useState('');
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
-
-  const handleCopyRules = () => {
-    const rulesText = `rules_version = '2';
-
-service cloud.firestore {
-  match /databases/{database}/documents {
-    function isAdmin() {
-      return request.auth != null && (
-        request.auth.token.email == "geminispuka@gmail.com" ||
-        (exists(/databases/$(database)/documents/userRoles/$(request.auth.uid)) && get(/databases/$(database)/documents/userRoles/$(request.auth.uid)).data.isAdmin == true)
-      );
-    }
-
-    match /mods/{modId} {
-      allow read: if true;
-      allow create: if isAdmin();
-      allow update: if isAdmin() || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['downloads']));
-      allow delete: if isAdmin();
-    }
-
-    match /authors/{authorId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /comments/{commentId} {
-      allow read: if true;
-      allow create: if true;
-      allow update: if true;
-      allow delete: if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
-    }
-
-    match /userRoles/{userId} {
-      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
-      allow write: if isAdmin() || (request.auth != null && request.auth.uid == userId);
-    }
-  }
-}`;
-    navigator.clipboard.writeText(rulesText);
-    setRulesCopied(true);
-    setTimeout(() => setRulesCopied(false), 3000);
-  };
 
   // Initialize nickname from localStorage or user displayName
   useEffect(() => {
@@ -221,67 +174,6 @@ service cloud.firestore {
           </div>
         )}
       </div>
-
-      {/* Cloud Sync Status Alert for Admin / Site Owner */}
-      {commentsSyncPending && (
-        <div className="mb-8 p-4 bg-amber-500/10 border border-amber-500/30 rounded-none font-mono text-xs text-zinc-300">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-bold text-amber-300 uppercase tracking-wider block sm:inline mr-2">
-                  Sincronización en la Nube (Reglas de Firebase requeridas)
-                </span>
-                <span className="text-zinc-400">
-                  Para que los comentarios se sincronicen en vivo entre tu computadora, celular y Vercel, debes publicar las reglas en tu consola de Firebase.
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-              <button
-                type="button"
-                onClick={handleCopyRules}
-                className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 font-bold transition-colors"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                {rulesCopied ? "¡Reglas Copiadas!" : "Copiar Reglas"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsGuideOpen(!isGuideOpen)}
-                className="p-1.5 text-zinc-400 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700"
-                title="Ver pasos"
-              >
-                {isGuideOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-
-          {isGuideOpen && (
-            <div className="mt-4 pt-3 border-t border-amber-500/20 text-zinc-400 text-xs space-y-2">
-              <p className="text-amber-200 font-bold">Pasos en Firebase Console (menos de 1 minuto):</p>
-              <ol className="list-decimal list-inside space-y-1 text-zinc-300">
-                <li>Haz clic en el botón <strong className="text-white">"Copiar Reglas"</strong> arriba.</li>
-                <li>
-                  Abre tu consola:{' '}
-                  <a
-                    href="https://console.firebase.google.com/project/mundo-mobilador/firestore/rules"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-cyan-400 underline inline-flex items-center gap-1 hover:text-cyan-300"
-                  >
-                    console.firebase.google.com (Pestaña Reglas) <ExternalLink className="w-3 h-3" />
-                  </a>
-                </li>
-                <li>Reemplaza el texto con lo que copiaste y pulsa <strong className="text-white">"Publicar"</strong>.</li>
-              </ol>
-              <p className="text-zinc-500 text-[11px]">
-                Nota: Vercel solo sube el código del sitio web; las reglas de base de datos se publican directamente en la consola de Firebase.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* LEFT COLUMN: Input Form */}

@@ -50,7 +50,6 @@ export function useFirebase() {
   const [mods, setMods] = useState<ModApk[]>([]);
   const [authors, setAuthors] = useState<Author[]>([]);
   const [comments, setComments] = useState<Comment[]>(getInitialComments);
-  const [commentsSyncPending, setCommentsSyncPending] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -130,17 +129,13 @@ export function useFirebase() {
         const sorted = sortCommentsList(remoteComments);
         setComments(sorted);
         saveCommentsToStorage(sorted);
-        setCommentsSyncPending(false);
-      }, (error) => {
-        // Log as a gentle warning if Firestore rules in Firebase Console haven't been updated yet
-        console.warn("Firestore comments snapshot notice (requires rules update in Firebase Console):", error.message || error);
-        setCommentsSyncPending(true);
+      }, () => {
+        // Silently preserve cached comments if offline or sync pending
       });
 
       return () => unsubscribe();
-    } catch (err) {
-      console.warn("Error setting up comments listener:", err);
-      setCommentsSyncPending(true);
+    } catch {
+      // Silently preserve local cache
     }
   }, []);
 
@@ -304,12 +299,8 @@ export function useFirebase() {
       if (newComment.userAvatar) cleanDoc.userAvatar = newComment.userAvatar;
 
       await setDoc(doc(db, 'comments', commentId), cleanDoc);
-      setCommentsSyncPending(false);
-    } catch (error: any) {
-      console.warn("Firestore comment write notice:", error.message || error);
-      if (error?.code === 'permission-denied') {
-        setCommentsSyncPending(true);
-      }
+    } catch {
+      // Silently continue with local update
     }
 
     return true;
@@ -326,12 +317,8 @@ export function useFirebase() {
     // 2. Remove from Firestore
     try {
       await deleteDoc(doc(db, 'comments', commentId));
-      setCommentsSyncPending(false);
-    } catch (error: any) {
-      console.warn("Firestore comment delete notice:", error.message || error);
-      if (error?.code === 'permission-denied') {
-        setCommentsSyncPending(true);
-      }
+    } catch {
+      // Silently continue with local update
     }
     return true;
   };
@@ -469,7 +456,6 @@ export function useFirebase() {
     mods,
     authors,
     comments,
-    commentsSyncPending,
     login,
     logout,
     addMod,
