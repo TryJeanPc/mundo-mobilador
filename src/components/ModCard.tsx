@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, User, Cpu, Clock, Trash2, CheckCircle, Pencil } from 'lucide-react';
+import { Download, User, Cpu, Clock, Trash2, CheckCircle, Pencil, Image as ImageIcon } from 'lucide-react';
 import { ModApk } from '../types';
 import { CATEGORY_INFO } from '../data';
 
@@ -8,9 +8,10 @@ interface ModCardProps {
   onDelete?: (id: string) => void;
   onEdit?: (mod: ModApk) => void;
   onDownload?: (id: string) => void;
+  onViewScreenshots?: (mod: ModApk) => void;
 }
 
-export const ModCard: React.FC<ModCardProps> = ({ mod, onDelete, onEdit, onDownload }) => {
+export const ModCard: React.FC<ModCardProps> = ({ mod, onDelete, onEdit, onDownload, onViewScreenshots }) => {
   const catInfo = CATEGORY_INFO[mod.category] || CATEGORY_INFO['Otros'];
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -53,15 +54,41 @@ export const ModCard: React.FC<ModCardProps> = ({ mod, onDelete, onEdit, onDownl
         )}
       </div>
       <div className="flex gap-4 mb-4">
-        <div className="w-16 h-16 shrink-0 border border-zinc-700 overflow-hidden relative">
+        <div 
+          onClick={() => onViewScreenshots?.(mod)}
+          className={`w-16 h-16 shrink-0 border border-zinc-700 overflow-hidden relative group/img ${
+            onViewScreenshots ? 'cursor-pointer hover:border-cyan-400' : ''
+          }`}
+          title={onViewScreenshots ? "Click para ver capturas de pantalla" : undefined}
+        >
           <img src={mod.imageUrl || catInfo.image} alt={mod.category} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-          <div className="absolute inset-0 bg-cyan-500/0 group-hover:bg-cyan-500/20 transition-colors pointer-events-none"></div>
+          <div className="absolute inset-0 bg-black/0 hover:bg-cyan-950/40 transition-colors flex items-center justify-center">
+            {onViewScreenshots && (
+              <ImageIcon className="w-5 h-5 text-cyan-400 opacity-0 group-hover/img:opacity-100 transition-opacity" />
+            )}
+          </div>
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-lg font-bold text-zinc-100 truncate font-mono uppercase tracking-wide">{mod.name}</h3>
-          <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-400/30 text-xs px-2 py-1 rounded-sm font-medium whitespace-nowrap mt-2 inline-block">
-            v{mod.version}
-          </span>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-400/30 text-xs px-2 py-0.5 rounded-sm font-medium whitespace-nowrap">
+              v{mod.version}
+            </span>
+            {onViewScreenshots && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewScreenshots(mod);
+                }}
+                className="text-[11px] font-mono px-2 py-0.5 bg-zinc-800 hover:bg-cyan-500/20 text-zinc-300 hover:text-cyan-300 border border-zinc-700 hover:border-cyan-500/40 flex items-center gap-1 transition-colors"
+                title="Ver capturas de pantalla"
+              >
+                <ImageIcon className="w-3 h-3 text-cyan-400" />
+                <span>Capturas</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
       

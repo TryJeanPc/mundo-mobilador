@@ -23,7 +23,8 @@ export function EditModModal({ isOpen, onClose, mod, authors, onSave }: EditModM
     author: '',
     size: '',
     downloadLink: '',
-    imageUrl: ''
+    imageUrl: '',
+    screenshotsText: ''
   });
 
   const [uploadMethod, setUploadMethod] = useState<'keep_or_link' | 'new_file'>('keep_or_link');
@@ -42,7 +43,8 @@ export function EditModModal({ isOpen, onClose, mod, authors, onSave }: EditModM
         author: mod.author || '',
         size: mod.size || '',
         downloadLink: mod.downloadLink || '',
-        imageUrl: mod.imageUrl || ''
+        imageUrl: mod.imageUrl || '',
+        screenshotsText: mod.screenshots ? mod.screenshots.join('\n') : ''
       });
       setUploadMethod('keep_or_link');
       setNewFile(null);
@@ -76,9 +78,14 @@ export function EditModModal({ isOpen, onClose, mod, authors, onSave }: EditModM
           async () => {
             const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
             const fileSize = (newFile.size / (1024 * 1024)).toFixed(1) + ' MB';
+            const parsedScreenshots = formData.screenshotsText
+              .split(/[\n,]/)
+              .map(s => s.trim())
+              .filter(s => s.length > 0 && s.startsWith('http'));
 
             await onSave(mod.id, {
               ...formData,
+              screenshots: parsedScreenshots,
               downloadLink: downloadUrl,
               size: fileSize
             });
@@ -89,7 +96,15 @@ export function EditModModal({ isOpen, onClose, mod, authors, onSave }: EditModM
         );
       } else {
         // Direct update with existing/updated link
-        await onSave(mod.id, formData);
+        const parsedScreenshots = formData.screenshotsText
+          .split(/[\n,]/)
+          .map(s => s.trim())
+          .filter(s => s.length > 0 && s.startsWith('http'));
+
+        await onSave(mod.id, {
+          ...formData,
+          screenshots: parsedScreenshots
+        });
         setIsSaving(false);
         onClose();
       }
@@ -260,6 +275,23 @@ export function EditModModal({ isOpen, onClose, mod, authors, onSave }: EditModM
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Screenshots Gallery URLs */}
+          <div className="space-y-2">
+            <label className="text-xs font-mono text-zinc-400 uppercase tracking-widest flex items-center justify-between">
+              <span className="flex items-center gap-1">
+                <ImageIcon className="w-3 h-3 text-cyan-400" /> Galería de Capturas de Pantalla (URLs)
+              </span>
+              <span className="text-[10px] text-zinc-500">Una URL por línea</span>
+            </label>
+            <textarea
+              rows={3}
+              placeholder="https://ejemplo.com/captura1.png&#10;https://ejemplo.com/captura2.png"
+              className="w-full bg-black border border-zinc-800 px-3 py-2 text-zinc-100 focus:outline-none focus:border-cyan-400 font-mono text-xs placeholder:text-zinc-600 resize-none"
+              value={formData.screenshotsText}
+              onChange={e => setFormData({...formData, screenshotsText: e.target.value})}
+            />
           </div>
 
           {/* Download Method / Link */}

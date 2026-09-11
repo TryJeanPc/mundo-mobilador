@@ -8,21 +8,26 @@ import { UploadModal } from './components/UploadModal';
 import { EditModModal } from './components/EditModModal';
 import { EditAuthorModal } from './components/EditAuthorModal';
 import { CommunityComments } from './components/CommunityComments';
+import { ScreenshotsModal } from './components/ScreenshotsModal';
 import { NetworkParticles } from './components/NetworkParticles';
 import { TiltImage } from './components/TiltImage';
 import { TerminalLog } from './components/TerminalLog';
 import { CommunityModal } from './components/CommunityModal';
+import { AudioThemeControl } from './components/AudioThemeControl';
+import { cyberAudio } from './utils/cyberAudio';
+import { CyberThemeId, getInitialTheme, applyTheme } from './utils/theme';
 
 import { useFirebase } from './useFirebase';
 
 export default function App() {
   const { 
     user, isAdmin, loading, 
-    mods, authors, comments,
+    mods, authors, comments, commentsSyncPending,
     login, logout, 
     addMod, updateMod, deleteMod, incrementDownload, 
     addAuthor, updateAuthor, deleteAuthor,
     addComment, deleteComment,
+    togglePinComment, reactToComment, addCommentReply, deleteCommentReply,
     claimAdminRole
   } = useFirebase();
 
@@ -43,6 +48,29 @@ export default function App() {
   // Edit Mod & Author state
   const [editingMod, setEditingMod] = useState<ModApk | null>(null);
   const [editingAuthor, setEditingAuthor] = useState<Author | null>(null);
+  const [viewingScreenshotsMod, setViewingScreenshotsMod] = useState<ModApk | null>(null);
+
+  // Cyberpunk Color Theme state
+  const [currentTheme, setCurrentTheme] = useState<CyberThemeId>(getInitialTheme);
+
+  useEffect(() => {
+    applyTheme(currentTheme);
+  }, [currentTheme]);
+
+  // Global tactile cyber click sound on interactive elements
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const interactiveEl = target.closest('button, a, input, select, textarea, [role="button"], [data-clickable="true"]');
+      if (interactiveEl) {
+        cyberAudio.playClick();
+      }
+    };
+
+    window.addEventListener('click', handleGlobalClick, { capture: true });
+    return () => window.removeEventListener('click', handleGlobalClick, { capture: true });
+  }, []);
 
   const handleUpload = async (newMod: ModApk) => {
     // The useFirebase addMod takes Omit<ModApk, 'id'>, but newMod has an id (generated in UploadModal)
@@ -84,6 +112,7 @@ export default function App() {
   };
 
   const handleIncrementDownload = async (modId: string) => {
+    cyberAudio.playConfirm();
     await incrementDownload(modId);
   };
 
@@ -127,38 +156,54 @@ export default function App() {
               </h1>
             </div>
             
-            <nav className="hidden md:flex gap-8 text-sm font-mono tracking-widest uppercase text-zinc-400">
-              <a href="#" className="hover:text-cyan-400 transition-colors">Inicio</a>
-              <a href="#mods" className="hover:text-cyan-400 transition-colors">Mods</a>
-              <a href="#comunidad" className="hover:text-cyan-400 transition-colors flex items-center gap-1.5">
-                Comentarios
-                {comments.length > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.2 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                    {comments.length}
-                  </span>
-                )}
-              </a>
+            {/* Right side: Audio & Theme Controls + Navigation */}
+            <div className="flex items-center gap-3 sm:gap-6">
+              {/* Cyberpunk Audio & Theme Control Widget */}
+              <AudioThemeControl 
+                currentTheme={currentTheme}
+                onThemeChange={setCurrentTheme}
+              />
+
+              <nav className="hidden md:flex gap-6 text-sm font-mono tracking-widest uppercase text-zinc-400 items-center">
+                <a href="#" className="hover:text-cyan-400 transition-colors">Inicio</a>
+                <a href="#mods" className="hover:text-cyan-400 transition-colors">Mods</a>
+                <a href="#comunidad" className="hover:text-cyan-400 transition-colors flex items-center gap-1.5">
+                  Comentarios
+                  {comments.length > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.2 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                      {comments.length}
+                    </span>
+                  )}
+                </a>
+                <button 
+                  onClick={() => setIsCommunityModalOpen(true)}
+                  className="hover:text-cyan-400 transition-colors text-left"
+                >
+                  Comunidad
+                </button>
+              </nav>
+              
+              {/* Mobile Menu Button */}
               <button 
-                onClick={() => setIsCommunityModalOpen(true)}
-                className="hover:text-cyan-400 transition-colors text-left"
+                className="md:hidden p-2 text-zinc-400 hover:text-cyan-400 transition-colors"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               >
-                Comunidad
+                {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
-            </nav>
-            
-            {/* Mobile Menu Button */}
-            <button 
-              className="md:hidden p-2 text-zinc-400 hover:text-cyan-400 transition-colors"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
+            </div>
           </div>
         </div>
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
           <div className="md:hidden absolute top-20 left-0 w-full bg-zinc-950/95 backdrop-blur-xl border-b border-zinc-800 p-4 shadow-2xl z-50">
+            <div className="mb-4 pb-3 border-b border-zinc-900 flex justify-between items-center">
+              <span className="text-xs font-mono text-zinc-400 uppercase tracking-widest">Ajustes Cyber</span>
+              <AudioThemeControl 
+                currentTheme={currentTheme}
+                onThemeChange={setCurrentTheme}
+              />
+            </div>
             <nav className="flex flex-col gap-4 text-sm font-mono tracking-widest uppercase text-zinc-400">
               <a 
                 href="#" 
@@ -205,7 +250,7 @@ export default function App() {
         <div className="md:w-1/2 space-y-8 text-center md:text-left z-20">
           <h2 className="text-5xl md:text-7xl font-bold font-mono tracking-tighter uppercase leading-none glitch-effect cursor-default">
             Mundo<br/>
-            <span className="text-cyan-400" style={{ textShadow: '0 0 20px rgba(34,211,238,0.5)' }}>Mobilador</span>
+            <span className="text-cyan-400 theme-dynamic-glow" style={{ textShadow: 'var(--theme-accent-glow, 0 0 20px rgba(34,211,238,0.5))' }}>Mobilador</span>
           </h2>
           <p className="text-zinc-400 text-lg md:text-xl font-light max-w-lg lg:max-w-xl xl:max-w-2xl leading-relaxed">
             "Hola, te damos la bienvenida a Mundo Mobilador, el lugar donde encontrarás mapeadores con acceso VIP. Somos la comunidad principal dedicada a centralizar, organizar y compartir las mejores versiones y codificaciones de Panda Mouse Pro, GG Mouse Pro y otras herramientas de mapeo. Explora nuestro catálogo, todo está disponible de forma 100% gratuita."
@@ -351,6 +396,7 @@ export default function App() {
                     onEdit={isAdmin ? (m) => setEditingMod(m) : undefined}
                     onDelete={isAdmin ? handleDeleteMod : undefined} 
                     onDownload={handleIncrementDownload} 
+                    onViewScreenshots={(m) => setViewingScreenshotsMod(m)}
                   />
                 ))}
               </div>
@@ -531,6 +577,7 @@ export default function App() {
                         onEdit={isAdmin ? (m) => setEditingMod(m) : undefined}
                         onDelete={isAdmin ? handleDeleteMod : undefined} 
                         onDownload={handleIncrementDownload} 
+                        onViewScreenshots={(m) => setViewingScreenshotsMod(m)}
                       /> 
                     : <ModListRow 
                         key={mod.id} 
@@ -538,6 +585,7 @@ export default function App() {
                         onEdit={isAdmin ? (m) => setEditingMod(m) : undefined}
                         onDelete={isAdmin ? handleDeleteMod : undefined} 
                         onDownload={handleIncrementDownload} 
+                        onViewScreenshots={(m) => setViewingScreenshotsMod(m)}
                       />
                 )) : (
                   <div className="col-span-full text-center py-12 text-zinc-500 font-mono">No se encontraron versiones para este creador.</div>
@@ -554,8 +602,13 @@ export default function App() {
         mods={mods}
         currentUser={user}
         isAdmin={isAdmin}
+        commentsSyncPending={commentsSyncPending}
         onAddComment={addComment}
         onDeleteComment={deleteComment}
+        onTogglePinComment={togglePinComment}
+        onReactComment={reactToComment}
+        onAddReply={addCommentReply}
+        onDeleteReply={deleteCommentReply}
         onSelectMod={(modName, category) => {
           setSelectedCategory(category);
           setSelectedCreator(null);
@@ -611,6 +664,12 @@ export default function App() {
       <CommunityModal 
         isOpen={isCommunityModalOpen}
         onClose={() => setIsCommunityModalOpen(false)}
+      />
+
+      <ScreenshotsModal
+        isOpen={!!viewingScreenshotsMod}
+        onClose={() => setViewingScreenshotsMod(null)}
+        mod={viewingScreenshotsMod}
       />
     </div>
   );

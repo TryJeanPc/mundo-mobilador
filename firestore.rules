@@ -5,7 +5,10 @@ service cloud.firestore {
     
     // Helper function to check if a user is an admin
     function isAdmin() {
-      return request.auth != null && exists(/databases/$(database)/documents/userRoles/$(request.auth.uid)) && get(/databases/$(database)/documents/userRoles/$(request.auth.uid)).data.isAdmin == true;
+      return request.auth != null && (
+        request.auth.token.email == "geminispuka@gmail.com" ||
+        (exists(/databases/$(database)/documents/userRoles/$(request.auth.uid)) && get(/databases/$(database)/documents/userRoles/$(request.auth.uid)).data.isAdmin == true)
+      );
     }
 
     match /mods/{modId} {
@@ -21,8 +24,10 @@ service cloud.firestore {
     }
 
     match /comments/{commentId} {
-      allow read, create: if true;
-      allow update, delete: if isAdmin();
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
     }
 
     match /userRoles/{userId} {

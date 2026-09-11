@@ -24,7 +24,12 @@ export const INITIAL_MODS: ModApk[] = [
     category: 'Panda Mouse',
     uploadDate: new Date().toISOString().split('T')[0],
     size: '12.4 MB',
-    downloads: 1450
+    downloads: 1450,
+    screenshots: [
+      'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&q=80',
+      'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&q=80',
+      'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=800&q=80'
+    ]
   },
   {
     id: '2',
@@ -36,7 +41,11 @@ export const INITIAL_MODS: ModApk[] = [
     category: 'GG Mouse',
     uploadDate: new Date().toISOString().split('T')[0],
     size: '18.1 MB',
-    downloads: 3200
+    downloads: 3200,
+    screenshots: [
+      'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=800&q=80',
+      'https://images.unsplash.com/photo-1542751110-97427bbecf20?w=800&q=80'
+    ]
   },
   {
     id: '3',

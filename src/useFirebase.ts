@@ -2,30 +2,35 @@ import { useState, useEffect } from 'react';
 import { auth, db, googleProvider } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, collection, onSnapshot, query, orderBy, setDoc, deleteDoc, updateDoc, increment } from 'firebase/firestore';
-import { ModApk, Author, Comment } from './types';
+import { ModApk, Author, Comment, CommentReply } from './types';
 
-const LOCAL_COMMENTS_KEY = 'mundo_mobilador_community_comments_v2';
+const LOCAL_COMMENTS_KEY = 'mundo_mobilador_community_comments_v4';
+
+export const sortCommentsList = (list: Comment[]): Comment[] => {
+  return [...list].sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+};
 
 const getInitialComments = (): Comment[] => {
   try {
+    // Purge legacy sample comments cache
+    localStorage.removeItem('mundo_mobilador_community_comments_v3');
     const raw = localStorage.getItem(LOCAL_COMMENTS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) {
+        // Strip out the old mock IDs
+        const real = parsed.filter(c => c.id !== 'welcome_com_pinned' && c.id !== 'welcome_com_1');
+        return sortCommentsList(real);
+      }
     }
   } catch (e) {
     console.warn("Could not read local comments cache", e);
   }
-  return [
-    {
-      id: 'welcome_com_1',
-      authorName: 'Mundo Mobilador Admin',
-      content: '¡Bienvenidos a la zona de comentarios y opiniones! Aquí pueden compartir sus dudas sobre mapeo en Android, sugerir nuevas versiones y reportar cómo les corre cada APK en sus periféricos.',
-      createdAt: Date.now() - 3600000 * 3,
-      taggedModName: 'Panda Mouse Pro & Smart GaGa',
-      userAvatar: 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=150&auto=format&fit=crop&q=80'
-    }
-  ];
+  return [];
 };
 
 const saveCommentsToStorage = (commentsList: Comment[]) => {
@@ -45,21 +50,32 @@ export function useFirebase() {
   const [mods, setMods] = useState<ModApk[]>([]);
   const [authors, setAuthors] = useState<Author[]>([]);
   const [comments, setComments] = useState<Comment[]>(getInitialComments);
+  const [commentsSyncPending, setCommentsSyncPending] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        try {
-          const roleDoc = await getDoc(doc(db, 'userRoles', currentUser.uid));
-          if (roleDoc.exists() && roleDoc.data().isAdmin === true) {
-            setIsAdmin(true);
-          } else {
+        // Automatically recognize creator/owner email
+        if (currentUser.email === 'geminispuka@gmail.com') {
+          setIsAdmin(true);
+          try {
+            await setDoc(doc(db, 'userRoles', currentUser.uid), { isAdmin: true }, { merge: true });
+          } catch (e) {
+            console.warn("Could not set userRole in firestore:", e);
+          }
+        } else {
+          try {
+            const roleDoc = await getDoc(doc(db, 'userRoles', currentUser.uid));
+            if (roleDoc.exists() && roleDoc.data().isAdmin === true) {
+              setIsAdmin(true);
+            } else {
+              setIsAdmin(false);
+            }
+          } catch (error) {
+            console.error("Error checking admin status", error);
             setIsAdmin(false);
           }
-        } catch (error) {
-          console.error("Error checking admin status", error);
-          setIsAdmin(false);
         }
       } else {
         setIsAdmin(false);
@@ -102,33 +118,29 @@ export function useFirebase() {
     return () => unsubscribe();
   }, []);
 
-  // Listen to community comments (merged with resilient cache)
+  // Listen to community comments in REAL TIME directly from Firestore
   useEffect(() => {
     try {
-      const q = collection(db, 'comments');
-      const unsubscribe = onSnapshot(q, (snapshot) => {
+      const commentsCol = collection(db, 'comments');
+      const unsubscribe = onSnapshot(commentsCol, (snapshot) => {
         const remoteComments: Comment[] = [];
         snapshot.forEach((doc) => {
           remoteComments.push({ id: doc.id, ...doc.data() } as Comment);
         });
-        if (remoteComments.length > 0) {
-          setComments(prev => {
-            const map = new Map<string, Comment>();
-            prev.forEach(c => map.set(c.id, c));
-            remoteComments.forEach(c => map.set(c.id, c));
-            const merged = Array.from(map.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-            saveCommentsToStorage(merged);
-            return merged;
-          });
-        }
+        const sorted = sortCommentsList(remoteComments);
+        setComments(sorted);
+        saveCommentsToStorage(sorted);
+        setCommentsSyncPending(false);
       }, (error) => {
-        // Fallback gracefully if remote rules are pending approval
-        console.warn("Firestore comments remote sync note:", error);
+        // Log as a gentle warning if Firestore rules in Firebase Console haven't been updated yet
+        console.warn("Firestore comments snapshot notice (requires rules update in Firebase Console):", error.message || error);
+        setCommentsSyncPending(true);
       });
 
       return () => unsubscribe();
     } catch (err) {
       console.warn("Error setting up comments listener:", err);
+      setCommentsSyncPending(true);
     }
   }, []);
 
@@ -281,7 +293,10 @@ export function useFirebase() {
       const cleanDoc: any = {
         authorName: newComment.authorName,
         content: newComment.content,
-        createdAt: newComment.createdAt
+        createdAt: newComment.createdAt,
+        isPinned: false,
+        reactions: {},
+        replies: []
       };
       if (newComment.taggedModId) cleanDoc.taggedModId = newComment.taggedModId;
       if (newComment.taggedModName) cleanDoc.taggedModName = newComment.taggedModName;
@@ -289,8 +304,12 @@ export function useFirebase() {
       if (newComment.userAvatar) cleanDoc.userAvatar = newComment.userAvatar;
 
       await setDoc(doc(db, 'comments', commentId), cleanDoc);
+      setCommentsSyncPending(false);
     } catch (error: any) {
-      console.warn("Firestore remote write pending rules confirmation:", error);
+      console.warn("Firestore comment write notice:", error.message || error);
+      if (error?.code === 'permission-denied') {
+        setCommentsSyncPending(true);
+      }
     }
 
     return true;
@@ -307,8 +326,122 @@ export function useFirebase() {
     // 2. Remove from Firestore
     try {
       await deleteDoc(doc(db, 'comments', commentId));
+      setCommentsSyncPending(false);
+    } catch (error: any) {
+      console.warn("Firestore comment delete notice:", error.message || error);
+      if (error?.code === 'permission-denied') {
+        setCommentsSyncPending(true);
+      }
+    }
+    return true;
+  };
+
+  const togglePinComment = async (commentId: string) => {
+    if (!isAdmin) return false;
+    let newPinnedState = false;
+    setComments(prev => {
+      const updated = prev.map(c => {
+        if (c.id === commentId) {
+          newPinnedState = !c.isPinned;
+          return { ...c, isPinned: newPinnedState };
+        }
+        return c;
+      });
+      const sorted = sortCommentsList(updated);
+      saveCommentsToStorage(sorted);
+      return sorted;
+    });
+
+    try {
+      await updateDoc(doc(db, 'comments', commentId), { isPinned: newPinnedState });
     } catch (error) {
-      console.warn("Error deleting comment from firestore:", error);
+      console.warn("Firestore pin update note:", error);
+    }
+    return true;
+  };
+
+  const reactToComment = async (commentId: string, emoji: string) => {
+    let updatedReactions: Record<string, number> = {};
+    setComments(prev => {
+      const updated = prev.map(c => {
+        if (c.id === commentId) {
+          const current = { ...(c.reactions || {}) };
+          current[emoji] = (current[emoji] || 0) + 1;
+          updatedReactions = current;
+          return { ...c, reactions: current };
+        }
+        return c;
+      });
+      saveCommentsToStorage(updated);
+      return updated;
+    });
+
+    try {
+      await updateDoc(doc(db, 'comments', commentId), {
+        [`reactions.${emoji}`]: increment(1)
+      });
+    } catch (error) {
+      console.warn("Firestore reaction update note:", error);
+    }
+  };
+
+  const addCommentReply = async (commentId: string, replyData: { authorName: string; content: string; userAvatar?: string }) => {
+    const replyId = 'rep_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+    const newReply: CommentReply = {
+      id: replyId,
+      authorName: replyData.authorName.trim(),
+      content: replyData.content.trim(),
+      createdAt: Date.now(),
+      isAdmin: isAdmin || replyData.authorName.toLowerCase().includes('admin'),
+      userAvatar: replyData.userAvatar || user?.photoURL || undefined
+    };
+
+    let fullRepliesList: CommentReply[] = [];
+
+    setComments(prev => {
+      const updated = prev.map(c => {
+        if (c.id === commentId) {
+          const currentReplies = c.replies || [];
+          fullRepliesList = [...currentReplies, newReply];
+          return { ...c, replies: fullRepliesList };
+        }
+        return c;
+      });
+      saveCommentsToStorage(updated);
+      return updated;
+    });
+
+    try {
+      await updateDoc(doc(db, 'comments', commentId), {
+        replies: fullRepliesList
+      });
+    } catch (error) {
+      console.warn("Firestore reply update note:", error);
+    }
+
+    return true;
+  };
+
+  const deleteCommentReply = async (commentId: string, replyId: string) => {
+    let fullRepliesList: CommentReply[] = [];
+    setComments(prev => {
+      const updated = prev.map(c => {
+        if (c.id === commentId && c.replies) {
+          fullRepliesList = c.replies.filter(r => r.id !== replyId);
+          return { ...c, replies: fullRepliesList };
+        }
+        return c;
+      });
+      saveCommentsToStorage(updated);
+      return updated;
+    });
+
+    try {
+      await updateDoc(doc(db, 'comments', commentId), {
+        replies: fullRepliesList
+      });
+    } catch (error) {
+      console.warn("Firestore delete reply note:", error);
     }
     return true;
   };
@@ -336,6 +469,7 @@ export function useFirebase() {
     mods,
     authors,
     comments,
+    commentsSyncPending,
     login,
     logout,
     addMod,
@@ -347,6 +481,10 @@ export function useFirebase() {
     deleteAuthor,
     addComment,
     deleteComment,
+    togglePinComment,
+    reactToComment,
+    addCommentReply,
+    deleteCommentReply,
     claimAdminRole
   };
 }

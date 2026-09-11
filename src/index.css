@@ -31,3 +31,75 @@
   animation: glitch 4s infinite;
 }
 
+/* CYBERPUNK COLOR THEMES & CSS VARIABLES */
+:root {
+  --theme-primary: #22d3ee;
+  --theme-primary-rgb: 34, 211, 238;
+}
+
+[data-theme="red"] {
+  --theme-primary: #ef4444;
+  --theme-primary-rgb: 239, 68, 68;
+}
+
+[data-theme="green"] {
+  --theme-primary: #22c55e;
+  --theme-primary-rgb: 34, 197, 94;
+}
+
+[data-theme="purple"] {
+  --theme-primary: #c084fc;
+  --theme-primary-rgb: 192, 132, 252;
+}
+
+[data-theme="amber"] {
+  --theme-primary: #fbbf24;
+  --theme-primary-rgb: 251, 191, 36;
+}
+
+/* Dynamic Theme Overrides for Cyan utilities when a non-cyan theme is active */
+[data-theme]:not([data-theme="cyan"]) .text-cyan-400,
+[data-theme]:not([data-theme="cyan"]) .text-cyan-300,
+[data-theme]:not([data-theme="cyan"]) a.hover\:text-cyan-400:hover,
+[data-theme]:not([data-theme="cyan"]) button.hover\:text-cyan-400:hover,
+[data-theme]:not([data-theme="cyan"]) button.hover\:text-cyan-300:hover,
+[data-theme]:not([data-theme="cyan"]) .hover\:text-cyan-400:hover {
+  color: var(--theme-primary) !important;
+}
+
+[data-theme]:not([data-theme="cyan"]) .border-cyan-400,
+[data-theme]:not([data-theme="cyan"]) .border-cyan-500,
+[data-theme]:not([data-theme="cyan"]) .focus\:border-cyan-400:focus,
+[data-theme]:not([data-theme="cyan"]) .hover\:border-cyan-400:hover,
+[data-theme]:not([data-theme="cyan"]) .hover\:border-cyan-400\/50:hover,
+[data-theme]:not([data-theme="cyan"]) .hover\:border-cyan-500\/40:hover,
+[data-theme]:not([data-theme="cyan"]) .group-hover\:border-cyan-500\/40:hover {
+  border-color: var(--theme-primary) !important;
+}
+
+[data-theme]:not([data-theme="cyan"]) [class*="border-cyan-500/"],
+[data-theme]:not([data-theme="cyan"]) [class*="border-cyan-400/"] {
+  border-color: rgba(var(--theme-primary-rgb), 0.35) !important;
+}
+
+[data-theme]:not([data-theme="cyan"]) .bg-cyan-500,
+[data-theme]:not([data-theme="cyan"]) .bg-cyan-400,
+[data-theme]:not([data-theme="cyan"]) .hover\:bg-cyan-500:hover,
+[data-theme]:not([data-theme="cyan"]) .hover\:bg-cyan-400:hover {
+  background-color: var(--theme-primary) !important;
+}
+
+[data-theme]:not([data-theme="cyan"]) [class*="bg-cyan-500/"],
+[data-theme]:not([data-theme="cyan"]) [class*="bg-cyan-400/"] {
+  background-color: rgba(var(--theme-primary-rgb), 0.15) !important;
+}
+
+[data-theme]:not([data-theme="cyan"]) .accent-cyan-400 {
+  accent-color: var(--theme-primary) !important;
+}
+
+[data-theme]:not([data-theme="cyan"]) .theme-dynamic-glow {
+  text-shadow: 0 0 20px rgba(var(--theme-primary-rgb), 0.55) !important;
+}
+
+

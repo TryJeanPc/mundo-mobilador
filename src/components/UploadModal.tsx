@@ -102,6 +102,7 @@ export function UploadModal({ isOpen, onClose, onUpload, authors, onAddAuthor, o
     description: '',
     imageUrl: '',
     downloadLink: '',
+    screenshotsText: '',
   });
 
   if (!isOpen) return null;
@@ -109,7 +110,7 @@ export function UploadModal({ isOpen, onClose, onUpload, authors, onAddAuthor, o
   const handleClose = () => {
     setStep('AUTHOR_SELECT');
     setSelectedAuthor(null);
-    setModFormData({ name: '', project: '', version: '', description: '', imageUrl: '', downloadLink: '' });
+    setModFormData({ name: '', project: '', version: '', description: '', imageUrl: '', downloadLink: '', screenshotsText: '' });
     setUploadMethod('file');
     onClose();
   };
@@ -148,9 +149,15 @@ export function UploadModal({ isOpen, onClose, onUpload, authors, onAddAuthor, o
         async () => {
           const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
           
+          const parsedScreenshots = modFormData.screenshotsText
+            .split(/[\n,]/)
+            .map(s => s.trim())
+            .filter(s => s.length > 0 && s.startsWith('http'));
+
           const newMod: ModApk = {
             id: Math.random().toString(36).substring(2, 9),
             ...modFormData,
+            screenshots: parsedScreenshots,
             downloadLink: downloadUrl,
             author: selectedAuthor.name,
             category: selectedAuthor.category,
@@ -166,9 +173,15 @@ export function UploadModal({ isOpen, onClose, onUpload, authors, onAddAuthor, o
       );
     } else {
       // Link upload
+      const parsedScreenshots = modFormData.screenshotsText
+        .split(/[\n,]/)
+        .map(s => s.trim())
+        .filter(s => s.length > 0 && s.startsWith('http'));
+
       const newMod: ModApk = {
         id: Math.random().toString(36).substring(2, 9),
         ...modFormData,
+        screenshots: parsedScreenshots,
         author: selectedAuthor.name,
         category: selectedAuthor.category,
         uploadDate: new Date().toISOString().split('T')[0],
@@ -411,6 +424,20 @@ export function UploadModal({ isOpen, onClose, onUpload, authors, onAddAuthor, o
                     />
                   </label>
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-mono text-zinc-400 uppercase tracking-widest flex items-center justify-between">
+                  <span>Galería de Capturas (Opcional)</span>
+                  <span className="text-[10px] text-zinc-500">1 URL por línea</span>
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="https://ejemplo.com/captura1.png&#10;https://ejemplo.com/captura2.png"
+                  className="w-full bg-black border border-zinc-800 px-3 py-2 text-zinc-100 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 font-mono text-xs placeholder:text-zinc-600 resize-none"
+                  value={modFormData.screenshotsText}
+                  onChange={e => setModFormData({...modFormData, screenshotsText: e.target.value})}
+                />
               </div>
 
               <div className="space-y-1">

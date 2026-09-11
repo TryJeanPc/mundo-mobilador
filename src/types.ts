@@ -14,6 +14,7 @@ export interface ModApk {
   description: string;
   category: string;
   imageUrl?: string;
+  screenshots?: string[];
   downloadLink?: string;
   uploadDate: string;
   size: string;
@@ -27,6 +28,15 @@ export const CATEGORIES = [
   'Otros'
 ] as const;
 
+export interface CommentReply {
+  id: string;
+  authorName: string;
+  content: string;
+  createdAt: number;
+  isAdmin?: boolean;
+  userAvatar?: string;
+}
+
 export interface Comment {
   id: string;
   authorName: string;
@@ -36,4 +46,7 @@ export interface Comment {
   taggedModName?: string;
   userId?: string;
   userAvatar?: string;
+  isPinned?: boolean;
+  reactions?: Record<string, number>;
+  replies?: CommentReply[];
 }

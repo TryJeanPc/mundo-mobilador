@@ -43,8 +43,9 @@ export function NetworkParticles() {
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      // Color #00f3ff in RGB
-      const colorRGB = '0, 243, 255';
+      // Read dynamic theme RGB or fallback to cyan
+      const computedRgb = getComputedStyle(document.documentElement).getPropertyValue('--theme-primary-rgb').trim();
+      const colorRGB = computedRgb || '34, 211, 238';
 
       particles.forEach((p, i) => {
         p.x += p.vx;

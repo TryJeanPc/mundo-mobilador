@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Send, Tag, Trash2, User, Loader2, Clock, CheckCircle2, ShieldCheck, Sparkles, Filter } from 'lucide-react';
-import { Comment, ModApk } from '../types';
+import { 
+  MessageSquare, Send, Tag, Trash2, User, Loader2, Clock, CheckCircle2, 
+  ShieldCheck, Sparkles, Filter, Pin, Reply, CornerDownRight, Smile,
+  AlertTriangle, Copy, ExternalLink, ChevronDown, ChevronUp
+} from 'lucide-react';
+import { Comment, ModApk, CommentReply } from '../types';
 
 interface CommunityCommentsProps {
   comments: Comment[];
   mods: ModApk[];
   currentUser: { displayName?: string | null; photoURL?: string | null; uid?: string } | null;
   isAdmin: boolean;
+  commentsSyncPending?: boolean;
   onAddComment: (data: {
     authorName: string;
     content: string;
@@ -15,16 +20,32 @@ interface CommunityCommentsProps {
     userAvatar?: string;
   }) => Promise<boolean>;
   onDeleteComment: (commentId: string) => Promise<boolean | void>;
+  onTogglePinComment?: (commentId: string) => Promise<boolean | void>;
+  onReactComment?: (commentId: string, emoji: string) => Promise<void> | void;
+  onAddReply?: (commentId: string, data: { authorName: string; content: string; userAvatar?: string }) => Promise<boolean | void>;
+  onDeleteReply?: (commentId: string, replyId: string) => Promise<boolean | void>;
   onSelectMod?: (modName: string, category: string) => void;
 }
+
+const AVAILABLE_REACTIONS = [
+  { emoji: '👍', label: 'Útil' },
+  { emoji: '🔥', label: 'Fuego' },
+  { emoji: '🎮', label: 'Gamer' },
+  { emoji: '❤️', label: 'Top' }
+];
 
 export const CommunityComments: React.FC<CommunityCommentsProps> = ({
   comments,
   mods,
   currentUser,
   isAdmin,
+  commentsSyncPending = false,
   onAddComment,
   onDeleteComment,
+  onTogglePinComment,
+  onReactComment,
+  onAddReply,
+  onDeleteReply,
   onSelectMod
 }) => {
   const [nickname, setNickname] = useState('');
@@ -34,14 +55,66 @@ export const CommunityComments: React.FC<CommunityCommentsProps> = ({
   const [filterModId, setFilterModId] = useState('ALL');
   const [justSubmitted, setJustSubmitted] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [rulesCopied, setRulesCopied] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+
+  // Reply state
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyAuthor, setReplyAuthor] = useState('');
+  const [replyContent, setReplyContent] = useState('');
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+
+  const handleCopyRules = () => {
+    const rulesText = `rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == "geminispuka@gmail.com" ||
+        (exists(/databases/$(database)/documents/userRoles/$(request.auth.uid)) && get(/databases/$(database)/documents/userRoles/$(request.auth.uid)).data.isAdmin == true)
+      );
+    }
+
+    match /mods/{modId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['downloads']));
+      allow delete: if isAdmin();
+    }
+
+    match /authors/{authorId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
+    }
+
+    match /userRoles/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin() || (request.auth != null && request.auth.uid == userId);
+    }
+  }
+}`;
+    navigator.clipboard.writeText(rulesText);
+    setRulesCopied(true);
+    setTimeout(() => setRulesCopied(false), 3000);
+  };
 
   // Initialize nickname from localStorage or user displayName
   useEffect(() => {
     const savedName = localStorage.getItem('mobilador_comment_nickname');
     if (savedName) {
       setNickname(savedName);
+      setReplyAuthor(savedName);
     } else if (currentUser?.displayName) {
       setNickname(currentUser.displayName);
+      setReplyAuthor(currentUser.displayName);
     }
   }, [currentUser]);
 
@@ -72,6 +145,24 @@ export const CommunityComments: React.FC<CommunityCommentsProps> = ({
       setJustSubmitted(true);
       setTimeout(() => setJustSubmitted(false), 3000);
     }
+  };
+
+  const handleReplySubmit = async (commentId: string, e: React.FormEvent) => {
+    e.preventDefault();
+    if (!replyAuthor.trim() || !replyContent.trim() || !onAddReply) return;
+
+    setIsSubmittingReply(true);
+    localStorage.setItem('mobilador_comment_nickname', replyAuthor.trim());
+
+    await onAddReply(commentId, {
+      authorName: replyAuthor.trim(),
+      content: replyContent.trim(),
+      userAvatar: currentUser?.photoURL || undefined
+    });
+
+    setIsSubmittingReply(false);
+    setReplyContent('');
+    setReplyingToId(null);
   };
 
   const timeAgo = (timestamp: number) => {
@@ -130,6 +221,67 @@ export const CommunityComments: React.FC<CommunityCommentsProps> = ({
           </div>
         )}
       </div>
+
+      {/* Cloud Sync Status Alert for Admin / Site Owner */}
+      {commentsSyncPending && (
+        <div className="mb-8 p-4 bg-amber-500/10 border border-amber-500/30 rounded-none font-mono text-xs text-zinc-300">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-amber-300 uppercase tracking-wider block sm:inline mr-2">
+                  Sincronización en la Nube (Reglas de Firebase requeridas)
+                </span>
+                <span className="text-zinc-400">
+                  Para que los comentarios se sincronicen en vivo entre tu computadora, celular y Vercel, debes publicar las reglas en tu consola de Firebase.
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={handleCopyRules}
+                className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 font-bold transition-colors"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                {rulesCopied ? "¡Reglas Copiadas!" : "Copiar Reglas"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsGuideOpen(!isGuideOpen)}
+                className="p-1.5 text-zinc-400 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700"
+                title="Ver pasos"
+              >
+                {isGuideOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {isGuideOpen && (
+            <div className="mt-4 pt-3 border-t border-amber-500/20 text-zinc-400 text-xs space-y-2">
+              <p className="text-amber-200 font-bold">Pasos en Firebase Console (menos de 1 minuto):</p>
+              <ol className="list-decimal list-inside space-y-1 text-zinc-300">
+                <li>Haz clic en el botón <strong className="text-white">"Copiar Reglas"</strong> arriba.</li>
+                <li>
+                  Abre tu consola:{' '}
+                  <a
+                    href="https://console.firebase.google.com/project/mundo-mobilador/firestore/rules"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-cyan-400 underline inline-flex items-center gap-1 hover:text-cyan-300"
+                  >
+                    console.firebase.google.com (Pestaña Reglas) <ExternalLink className="w-3 h-3" />
+                  </a>
+                </li>
+                <li>Reemplaza el texto con lo que copiaste y pulsa <strong className="text-white">"Publicar"</strong>.</li>
+              </ol>
+              <p className="text-zinc-500 text-[11px]">
+                Nota: Vercel solo sube el código del sitio web; las reglas de base de datos se publican directamente en la consola de Firebase.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* LEFT COLUMN: Input Form */}
@@ -245,8 +397,20 @@ export const CommunityComments: React.FC<CommunityCommentsProps> = ({
               filteredComments.map((comment) => (
                 <div
                   key={comment.id}
-                  className="bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 p-4 sm:p-5 transition-all group relative backdrop-blur-sm"
+                  className={`border p-4 sm:p-5 transition-all group relative backdrop-blur-sm ${
+                    comment.isPinned
+                      ? 'border-cyan-500/60 bg-gradient-to-b from-cyan-950/25 via-zinc-900/80 to-zinc-900/70 shadow-[0_0_20px_rgba(34,211,238,0.08)]'
+                      : 'bg-zinc-900/60 border-zinc-800/80 hover:border-zinc-700'
+                  }`}
                 >
+                  {/* Pinned Notification Header */}
+                  {comment.isPinned && (
+                    <div className="flex items-center gap-1.5 text-cyan-400 font-mono text-[11px] font-bold uppercase tracking-wider mb-3 pb-2 border-b border-cyan-500/20">
+                      <Pin className="w-3.5 h-3.5 fill-cyan-400 rotate-45" />
+                      <span>Comentario Fijado por Administración</span>
+                    </div>
+                  )}
+
                   {/* Top Bar: User & Time */}
                   <div className="flex items-start justify-between gap-3 mb-2.5">
                     <div className="flex items-center gap-3">
@@ -264,7 +428,7 @@ export const CommunityComments: React.FC<CommunityCommentsProps> = ({
                           <span className="font-mono text-sm font-bold text-zinc-200 group-hover:text-cyan-400 transition-colors">
                             {comment.authorName}
                           </span>
-                          {comment.authorName.toLowerCase().includes('admin') && (
+                          {(comment.authorName.toLowerCase().includes('admin') || comment.isPinned) && (
                             <span className="text-[9px] font-mono px-1.5 py-0.2 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center gap-1">
                               <ShieldCheck className="w-2.5 h-2.5" /> MOD
                             </span>
@@ -277,39 +441,55 @@ export const CommunityComments: React.FC<CommunityCommentsProps> = ({
                       </div>
                     </div>
 
-                    {/* Admin Delete Action */}
-                    {isAdmin && (
-                      <div className="flex items-center gap-1">
-                        {deleteConfirmId === comment.id ? (
-                          <div className="flex items-center gap-1 bg-red-950/80 border border-red-500/50 px-2 py-1 text-[11px] font-mono">
-                            <span className="text-red-300">¿Borrar?</span>
+                    {/* Actions: Pin Toggle & Admin Delete */}
+                    <div className="flex items-center gap-1">
+                      {isAdmin && onTogglePinComment && (
+                        <button
+                          onClick={() => onTogglePinComment(comment.id)}
+                          className={`p-1.5 transition-all ${
+                            comment.isPinned
+                              ? 'text-cyan-400 bg-cyan-500/20 border border-cyan-500/40'
+                              : 'text-zinc-600 hover:text-cyan-400 border border-transparent hover:border-cyan-500/40 opacity-0 group-hover:opacity-100'
+                          }`}
+                          title={comment.isPinned ? "Desfijar comentario" : "Fijar comentario al inicio"}
+                        >
+                          <Pin className={`w-3.5 h-3.5 ${comment.isPinned ? 'fill-cyan-400' : ''}`} />
+                        </button>
+                      )}
+
+                      {isAdmin && (
+                        <div>
+                          {deleteConfirmId === comment.id ? (
+                            <div className="flex items-center gap-1 bg-red-950/80 border border-red-500/50 px-2 py-1 text-[11px] font-mono">
+                              <span className="text-red-300">¿Borrar?</span>
+                              <button
+                                onClick={() => {
+                                  onDeleteComment(comment.id);
+                                  setDeleteConfirmId(null);
+                                }}
+                                className="text-red-400 hover:text-red-200 font-bold px-1 underline"
+                              >
+                                Sí
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirmId(null)}
+                                className="text-zinc-400 hover:text-zinc-200 px-1"
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : (
                             <button
-                              onClick={() => {
-                                onDeleteComment(comment.id);
-                                setDeleteConfirmId(null);
-                              }}
-                              className="text-red-400 hover:text-red-200 font-bold px-1 underline"
+                              onClick={() => setDeleteConfirmId(comment.id)}
+                              className="p-1.5 text-zinc-600 hover:text-red-400 border border-transparent hover:border-red-500/40 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+                              title="Eliminar comentario como Administrador"
                             >
-                              Sí
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
-                            <button
-                              onClick={() => setDeleteConfirmId(null)}
-                              className="text-zinc-400 hover:text-zinc-200 px-1"
-                            >
-                              No
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setDeleteConfirmId(comment.id)}
-                            className="p-1.5 text-zinc-600 hover:text-red-400 border border-transparent hover:border-red-500/40 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
-                            title="Eliminar comentario como Administrador"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    )}
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Tagged APK Badge (if present) */}
@@ -335,6 +515,148 @@ export const CommunityComments: React.FC<CommunityCommentsProps> = ({
                   <p className="text-zinc-300 text-sm font-sans leading-relaxed break-words whitespace-pre-wrap">
                     {comment.content}
                   </p>
+
+                  {/* Reactions & Reply Row */}
+                  <div className="mt-3.5 pt-3 border-t border-zinc-800/60 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {AVAILABLE_REACTIONS.map(({ emoji, label }) => {
+                        const count = comment.reactions?.[emoji] || 0;
+                        return (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => onReactComment?.(comment.id, emoji)}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono border transition-all ${
+                              count > 0 
+                                ? 'bg-zinc-800/90 border-cyan-500/40 text-zinc-200 hover:border-cyan-400 hover:bg-cyan-500/10' 
+                                : 'bg-zinc-900/60 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
+                            }`}
+                            title={`Reaccionar con ${label}`}
+                          >
+                            <span>{emoji}</span>
+                            {count > 0 && <span className="font-bold text-[11px] text-cyan-400">{count}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Reply Trigger */}
+                    {onAddReply && (
+                      <button
+                        type="button"
+                        onClick={() => setReplyingToId(replyingToId === comment.id ? null : comment.id)}
+                        className={`flex items-center gap-1.5 text-xs font-mono px-2.5 py-1 border transition-colors ${
+                          replyingToId === comment.id
+                            ? 'bg-cyan-500 text-black border-cyan-500 font-bold'
+                            : 'bg-zinc-800/60 hover:bg-cyan-500/20 text-zinc-400 hover:text-cyan-300 border-zinc-800 hover:border-cyan-500/40'
+                        }`}
+                      >
+                        <Reply className="w-3.5 h-3.5" />
+                        <span>Responder</span>
+                        {(comment.replies?.length ?? 0) > 0 && (
+                          <span className={`text-[10px] px-1.5 py-0.2 font-bold ${
+                            replyingToId === comment.id ? 'bg-black/20 text-black' : 'bg-cyan-500/20 text-cyan-300'
+                          }`}>
+                            {comment.replies?.length}
+                          </span>
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Inline Reply Form */}
+                  {replyingToId === comment.id && (
+                    <form onSubmit={(e) => handleReplySubmit(comment.id, e)} className="mt-3 p-3 bg-zinc-950/80 border border-cyan-500/40 space-y-2">
+                      <div className="flex items-center justify-between text-xs font-mono text-cyan-400">
+                        <span className="flex items-center gap-1">
+                          <CornerDownRight className="w-3.5 h-3.5" />
+                          Respondiendo a <strong className="text-zinc-200">@{comment.authorName}</strong>
+                        </span>
+                        <button 
+                          type="button" 
+                          onClick={() => setReplyingToId(null)}
+                          className="text-zinc-500 hover:text-zinc-300 text-[11px]"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input
+                          type="text"
+                          value={replyAuthor}
+                          onChange={(e) => setReplyAuthor(e.target.value)}
+                          placeholder="Tu apodo..."
+                          maxLength={25}
+                          required
+                          className="bg-zinc-900 border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-cyan-400 font-mono"
+                        />
+                        <input
+                          type="text"
+                          value={replyContent}
+                          onChange={(e) => setReplyContent(e.target.value)}
+                          placeholder="Escribe tu respuesta..."
+                          maxLength={300}
+                          required
+                          className="sm:col-span-2 bg-zinc-900 border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-cyan-400 font-mono"
+                        />
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          type="submit"
+                          disabled={isSubmittingReply || !replyAuthor.trim() || !replyContent.trim()}
+                          className="px-3 py-1 bg-cyan-500 hover:bg-cyan-400 text-black font-mono font-bold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                        >
+                          {isSubmittingReply ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                          Enviar Respuesta
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Threaded Replies List */}
+                  {comment.replies && comment.replies.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-zinc-800/40 pl-3 sm:pl-4 border-l-2 border-cyan-500/30 space-y-2">
+                      {comment.replies.map((reply) => (
+                        <div key={reply.id} className="bg-zinc-950/40 p-2.5 border border-zinc-800/70 hover:border-zinc-700 transition-colors group/rep">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-zinc-900 border border-cyan-500/30 flex items-center justify-center text-[10px] font-mono font-bold text-cyan-400 shrink-0">
+                                {reply.userAvatar ? (
+                                  <img src={reply.userAvatar} alt="" className="w-full h-full object-cover rounded-full" />
+                                ) : (
+                                  reply.authorName.charAt(0).toUpperCase()
+                                )}
+                              </div>
+                              <span className="font-mono text-xs font-bold text-zinc-300">
+                                {reply.authorName}
+                              </span>
+                              {reply.isAdmin && (
+                                <span className="text-[8px] font-mono px-1 py-0.1 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center gap-0.5">
+                                  <ShieldCheck className="w-2.5 h-2.5" /> MOD
+                                </span>
+                              )}
+                              <span className="text-[10px] font-mono text-zinc-500">
+                                {timeAgo(reply.createdAt)}
+                              </span>
+                            </div>
+
+                            {isAdmin && onDeleteReply && (
+                              <button
+                                onClick={() => onDeleteReply(comment.id, reply.id)}
+                                className="text-zinc-600 hover:text-red-400 p-1 opacity-0 group/rep:opacity-100 transition-opacity"
+                                title="Eliminar respuesta"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-zinc-300 text-xs font-sans leading-relaxed whitespace-pre-wrap pl-8">
+                            {reply.content}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))
             ) : (

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Trash2, CheckCircle, Pencil } from 'lucide-react';
+import { Download, Trash2, CheckCircle, Pencil, Image as ImageIcon } from 'lucide-react';
 import { ModApk } from '../types';
 import { CATEGORY_INFO } from '../data';
 
@@ -8,16 +8,23 @@ interface ModListRowProps {
   onDelete?: (id: string) => void;
   onEdit?: (mod: ModApk) => void;
   onDownload?: (id: string) => void;
+  onViewScreenshots?: (mod: ModApk) => void;
 }
 
-export const ModListRow: React.FC<ModListRowProps> = ({ mod, onDelete, onEdit, onDownload }) => {
+export const ModListRow: React.FC<ModListRowProps> = ({ mod, onDelete, onEdit, onDownload, onViewScreenshots }) => {
   const catInfo = CATEGORY_INFO[mod.category] || CATEGORY_INFO['Otros'];
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
   return (
     <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800 p-3 flex items-center hover:border-cyan-400/50 transition-colors group z-10 relative gap-4">
-      <div className="w-12 h-12 shrink-0 border border-zinc-700 overflow-hidden relative hidden sm:block">
+      <div 
+        onClick={() => onViewScreenshots?.(mod)}
+        className={`w-12 h-12 shrink-0 border border-zinc-700 overflow-hidden relative hidden sm:block ${
+          onViewScreenshots ? 'cursor-pointer hover:border-cyan-400' : ''
+        }`}
+        title={onViewScreenshots ? "Ver capturas" : undefined}
+      >
         <img src={mod.imageUrl || catInfo.image} alt={mod.category} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
       </div>
       
@@ -32,10 +39,23 @@ export const ModListRow: React.FC<ModListRowProps> = ({ mod, onDelete, onEdit, o
         </div>
         
         <div className="md:col-span-3 flex items-center justify-between md:justify-end gap-2 shrink-0">
-          <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-400/30 text-xs px-2 py-1 rounded-sm font-medium whitespace-nowrap mr-2">
+          <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-400/30 text-xs px-2 py-1 rounded-sm font-medium whitespace-nowrap mr-1">
             v{mod.version}
           </span>
           
+          {onViewScreenshots && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewScreenshots(mod);
+              }}
+              className="flex items-center justify-center border p-2 bg-transparent border-zinc-800 text-zinc-400 hover:border-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300 transition-all"
+              title="Ver capturas de pantalla"
+            >
+              <ImageIcon className="w-4 h-4" />
+            </button>
+          )}
+
           {onEdit && (
             <button
               onClick={(e) => {
