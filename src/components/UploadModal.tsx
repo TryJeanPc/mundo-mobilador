@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, UploadCloud, User, Lock, Plus, Folder, CheckCircle, ChevronRight, Trash2, Loader2 } from 'lucide-react';
+import { X, UploadCloud, User, Plus, Folder, CheckCircle, ChevronRight, Trash2, Loader2, Pencil } from 'lucide-react';
 import { ModApk, Author, CATEGORIES } from '../types';
 import { storage } from '../firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
@@ -10,10 +10,11 @@ interface UploadModalProps {
   onUpload: (mod: ModApk) => void;
   authors: Author[];
   onAddAuthor: (author: Author) => void;
+  onEditAuthor?: (author: Author) => void;
   onDeleteAuthor: (id: string) => void;
 }
 
-type Step = 'LOGIN' | 'AUTHOR_SELECT' | 'AUTHOR_CREATE' | 'MOD_UPLOAD';
+type Step = 'AUTHOR_SELECT' | 'AUTHOR_CREATE' | 'MOD_UPLOAD';
 
 const compressImage = (file: File, callback: (base64: string) => void) => {
   const reader = new FileReader();
@@ -75,13 +76,8 @@ const AuthorDeleteButton = ({ author, onDelete }: { author: Author, onDelete: ()
   );
 };
 
-export function UploadModal({ isOpen, onClose, onUpload, authors, onAddAuthor, onDeleteAuthor }: UploadModalProps) {
-  const [step, setStep] = useState<Step>('LOGIN');
-  
-  // Login State
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+export function UploadModal({ isOpen, onClose, onUpload, authors, onAddAuthor, onEditAuthor, onDeleteAuthor }: UploadModalProps) {
+  const [step, setStep] = useState<Step>('AUTHOR_SELECT');
 
   // Author State
   const [selectedAuthor, setSelectedAuthor] = useState<Author | null>(null);
@@ -111,23 +107,11 @@ export function UploadModal({ isOpen, onClose, onUpload, authors, onAddAuthor, o
   if (!isOpen) return null;
 
   const handleClose = () => {
-    setStep('LOGIN');
-    setUsername('');
-    setPassword('');
+    setStep('AUTHOR_SELECT');
     setSelectedAuthor(null);
     setModFormData({ name: '', project: '', version: '', description: '', imageUrl: '', downloadLink: '' });
     setUploadMethod('file');
     onClose();
-  };
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoggingIn(true);
-    // Simulate login delay
-    setTimeout(() => {
-      setIsLoggingIn(false);
-      setStep('AUTHOR_SELECT');
-    }, 800);
   };
 
   const handleCreateAuthor = (e: React.FormEvent) => {
@@ -202,8 +186,7 @@ export function UploadModal({ isOpen, onClose, onUpload, authors, onAddAuthor, o
       <div className="bg-zinc-900 border border-zinc-800 rounded-none w-full max-w-md shadow-[0_0_50px_rgba(34,211,238,0.1)] overflow-hidden">
         <div className="flex justify-between items-center p-4 border-b border-zinc-800 bg-zinc-950">
           <h2 className="text-lg font-bold text-zinc-100 flex items-center gap-2 font-mono uppercase tracking-widest">
-            {step === 'LOGIN' && <><Lock className="text-cyan-400 w-5 h-5" /> Acceso Restringido</>}
-            {step === 'AUTHOR_SELECT' && <><User className="text-cyan-400 w-5 h-5" /> Seleccionar Autor</>}
+            {step === 'AUTHOR_SELECT' && <><User className="text-cyan-400 w-5 h-5" /> Seleccionar Creador</>}
             {step === 'AUTHOR_CREATE' && <><Plus className="text-cyan-400 w-5 h-5" /> Nuevo Creador</>}
             {step === 'MOD_UPLOAD' && <><UploadCloud className="text-cyan-400 w-5 h-5" /> Subir Mod</>}
           </h2>
@@ -213,44 +196,6 @@ export function UploadModal({ isOpen, onClose, onUpload, authors, onAddAuthor, o
         </div>
         
         <div className="p-6">
-          {/* STEP: LOGIN */}
-          {step === 'LOGIN' && (
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div className="text-center mb-6">
-                <p className="text-zinc-400 text-sm font-mono">Inicie sesión para acceder al sistema de subida.</p>
-              </div>
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-mono text-cyan-400 uppercase tracking-widest">Usuario</label>
-                  <input 
-                    required
-                    type="text" 
-                    className="w-full bg-black border border-zinc-800 px-4 py-3 text-zinc-100 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 font-mono text-sm transition-colors"
-                    value={username}
-                    onChange={e => setUsername(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-mono text-cyan-400 uppercase tracking-widest">Contraseña</label>
-                  <input 
-                    required
-                    type="password" 
-                    className="w-full bg-black border border-zinc-800 px-4 py-3 text-zinc-100 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 font-mono text-sm transition-colors"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                  />
-                </div>
-              </div>
-              <button 
-                type="submit" 
-                disabled={isLoggingIn}
-                className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold py-3 uppercase tracking-widest font-mono transition-colors disabled:opacity-50"
-              >
-                {isLoggingIn ? 'Autenticando...' : 'Iniciar Sesión'}
-              </button>
-            </form>
-          )}
-
           {/* STEP: AUTHOR SELECT */}
           {step === 'AUTHOR_SELECT' && (
             <div className="space-y-6">
@@ -279,6 +224,19 @@ export function UploadModal({ isOpen, onClose, onUpload, authors, onAddAuthor, o
                       </div>
                       <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-cyan-400" />
                     </button>
+                    {onEditAuthor && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditAuthor(author);
+                        }}
+                        className="w-12 flex items-center justify-center shrink-0 border bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors"
+                        title="Editar Creador"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    )}
                     <AuthorDeleteButton author={author} onDelete={() => onDeleteAuthor(author.id)} />
                   </div>
                 ))}

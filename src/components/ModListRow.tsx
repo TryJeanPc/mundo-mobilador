@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { Download, Trash2, CheckCircle } from 'lucide-react';
+import { Download, Trash2, CheckCircle, Pencil } from 'lucide-react';
 import { ModApk } from '../types';
 import { CATEGORY_INFO } from '../data';
 
 interface ModListRowProps {
   mod: ModApk;
   onDelete?: (id: string) => void;
+  onEdit?: (mod: ModApk) => void;
   onDownload?: (id: string) => void;
 }
 
-export const ModListRow: React.FC<ModListRowProps> = ({ mod, onDelete, onDownload }) => {
+export const ModListRow: React.FC<ModListRowProps> = ({ mod, onDelete, onEdit, onDownload }) => {
   const catInfo = CATEGORY_INFO[mod.category] || CATEGORY_INFO['Otros'];
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -35,6 +36,19 @@ export const ModListRow: React.FC<ModListRowProps> = ({ mod, onDelete, onDownloa
             v{mod.version}
           </span>
           
+          {onEdit && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(mod);
+              }}
+              className="flex items-center justify-center border p-2 bg-transparent border-zinc-800 text-zinc-500 hover:border-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-all"
+              title="Editar Mod"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
+
           {onDelete && (
             <button
               onClick={(e) => {

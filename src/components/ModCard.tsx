@@ -1,42 +1,57 @@
 import React, { useState } from 'react';
-import { Download, User, Cpu, Clock, Trash2, CheckCircle } from 'lucide-react';
+import { Download, User, Cpu, Clock, Trash2, CheckCircle, Pencil } from 'lucide-react';
 import { ModApk } from '../types';
 import { CATEGORY_INFO } from '../data';
 
 interface ModCardProps {
   mod: ModApk;
   onDelete?: (id: string) => void;
+  onEdit?: (mod: ModApk) => void;
   onDownload?: (id: string) => void;
 }
 
-export const ModCard: React.FC<ModCardProps> = ({ mod, onDelete, onDownload }) => {
+export const ModCard: React.FC<ModCardProps> = ({ mod, onDelete, onEdit, onDownload }) => {
   const catInfo = CATEGORY_INFO[mod.category] || CATEGORY_INFO['Otros'];
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
   return (
     <div className="bg-zinc-900/80 backdrop-blur-sm border border-zinc-800 p-5 flex flex-col hover:border-cyan-400/50 transition-colors group z-10 relative">
-      {onDelete && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (isConfirmingDelete) {
-              onDelete(mod.id);
-            } else {
-              setIsConfirmingDelete(true);
-              setTimeout(() => setIsConfirmingDelete(false), 3000);
-            }
-          }}
-          className={`absolute top-2 right-2 p-2 bg-black/80 border transition-all z-20 ${
-            isConfirmingDelete
-              ? 'border-red-500 text-red-500 opacity-100 scale-110'
-              : 'border-zinc-800 hover:border-red-500 hover:bg-red-500/20 text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100'
-          }`}
-          title={isConfirmingDelete ? "Click de nuevo para borrar" : "Eliminar Mod"}
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
-      )}
+      <div className="absolute top-2 right-2 flex items-center gap-1 z-20">
+        {onEdit && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(mod);
+            }}
+            className="p-2 bg-black/80 border border-zinc-800 hover:border-cyan-400 hover:bg-cyan-500/20 text-zinc-500 hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-all"
+            title="Editar Mod"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+        )}
+        {onDelete && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isConfirmingDelete) {
+                onDelete(mod.id);
+              } else {
+                setIsConfirmingDelete(true);
+                setTimeout(() => setIsConfirmingDelete(false), 3000);
+              }
+            }}
+            className={`p-2 bg-black/80 border transition-all ${
+              isConfirmingDelete
+                ? 'border-red-500 text-red-500 opacity-100 scale-110'
+                : 'border-zinc-800 hover:border-red-500 hover:bg-red-500/20 text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100'
+            }`}
+            title={isConfirmingDelete ? "Click de nuevo para borrar" : "Eliminar Mod"}
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
       <div className="flex gap-4 mb-4">
         <div className="w-16 h-16 shrink-0 border border-zinc-700 overflow-hidden relative">
           <img src={mod.imageUrl || catInfo.image} alt={mod.category} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />

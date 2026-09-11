@@ -26,3 +26,14 @@ export const CATEGORIES = [
   'SSkey',
   'Otros'
 ] as const;
+
+export interface Comment {
+  id: string;
+  authorName: string;
+  content: string;
+  createdAt: number;
+  taggedModId?: string;
+  taggedModName?: string;
+  userId?: string;
+  userAvatar?: string;
+}

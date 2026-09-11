@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, ShieldAlert, Library, Info, Folder, User, Package, ChevronRight, LayoutGrid, List, Menu, X } from 'lucide-react';
+import { Search, Plus, ShieldAlert, Library, Info, Folder, User, Package, ChevronRight, LayoutGrid, List, Menu, X, Pencil, Trash2, Zap, ShieldCheck } from 'lucide-react';
 import { ModApk, Author, CATEGORIES } from './types';
 import { INITIAL_MODS, INITIAL_AUTHORS, CATEGORY_INFO } from './data';
 import { ModCard } from './components/ModCard';
 import { ModListRow } from './components/ModListRow';
 import { UploadModal } from './components/UploadModal';
+import { EditModModal } from './components/EditModModal';
+import { EditAuthorModal } from './components/EditAuthorModal';
+import { CommunityComments } from './components/CommunityComments';
 import { NetworkParticles } from './components/NetworkParticles';
 import { TiltImage } from './components/TiltImage';
 import { TerminalLog } from './components/TerminalLog';
@@ -15,10 +18,12 @@ import { useFirebase } from './useFirebase';
 export default function App() {
   const { 
     user, isAdmin, loading, 
-    mods, authors, 
+    mods, authors, comments,
     login, logout, 
-    addMod, deleteMod, incrementDownload, 
-    addAuthor, deleteAuthor, claimAdminRole
+    addMod, updateMod, deleteMod, incrementDownload, 
+    addAuthor, updateAuthor, deleteAuthor,
+    addComment, deleteComment,
+    claimAdminRole
   } = useFirebase();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,6 +40,10 @@ export default function App() {
   const [isCommunityModalOpen, setIsCommunityModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Edit Mod & Author state
+  const [editingMod, setEditingMod] = useState<ModApk | null>(null);
+  const [editingAuthor, setEditingAuthor] = useState<Author | null>(null);
+
   const handleUpload = async (newMod: ModApk) => {
     // The useFirebase addMod takes Omit<ModApk, 'id'>, but newMod has an id (generated in UploadModal)
     // We can just pass the whole newMod and Firestore will ignore the id field if we don't save it, or we can strip it.
@@ -42,9 +51,21 @@ export default function App() {
     await addMod(modData as any);
   };
 
+  const handleEditMod = async (modId: string, updatedData: Partial<ModApk>) => {
+    await updateMod(modId, updatedData);
+  };
+
   const handleAddAuthor = async (newAuthor: Author) => {
     const { id, ...authorData } = newAuthor;
     await addAuthor(authorData as any);
+  };
+
+  const handleEditAuthor = async (authorId: string, updatedData: Partial<Author>, oldName?: string) => {
+    await updateAuthor(authorId, updatedData, oldName);
+    // If the selected creator name changed, update the active selection
+    if (oldName && selectedCreator === oldName && updatedData.name) {
+      setSelectedCreator(updatedData.name);
+    }
   };
 
   const handleDeleteAuthor = async (authorId: string) => {
@@ -109,6 +130,14 @@ export default function App() {
             <nav className="hidden md:flex gap-8 text-sm font-mono tracking-widest uppercase text-zinc-400">
               <a href="#" className="hover:text-cyan-400 transition-colors">Inicio</a>
               <a href="#mods" className="hover:text-cyan-400 transition-colors">Mods</a>
+              <a href="#comunidad" className="hover:text-cyan-400 transition-colors flex items-center gap-1.5">
+                Comentarios
+                {comments.length > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.2 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                    {comments.length}
+                  </span>
+                )}
+              </a>
               <button 
                 onClick={() => setIsCommunityModalOpen(true)}
                 className="hover:text-cyan-400 transition-colors text-left"
@@ -145,6 +174,18 @@ export default function App() {
               >
                 Mods
               </a>
+              <a 
+                href="#comunidad" 
+                className="hover:text-cyan-400 transition-colors py-2 border-b border-zinc-900 flex items-center justify-between"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <span>Comentarios</span>
+                {comments.length > 0 && (
+                  <span className="text-xs px-2 py-0.5 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                    {comments.length}
+                  </span>
+                )}
+              </a>
               <button 
                 onClick={() => {
                   setIsCommunityModalOpen(true);
@@ -171,7 +212,7 @@ export default function App() {
           </p>
           
           {/* HUD Stats */}
-          <div className="flex gap-4 justify-center md:justify-start">
+          <div className="flex gap-4 justify-center md:justify-start flex-wrap">
             <div className="border border-zinc-800 bg-zinc-950/60 backdrop-blur-sm p-3 w-28 text-center">
               <div className="text-cyan-400 font-mono text-xl">{mods.length}</div>
               <div className="text-zinc-500 text-[10px] tracking-widest uppercase">Mods</div>
@@ -183,6 +224,10 @@ export default function App() {
             <div className="border border-zinc-800 bg-zinc-950/60 backdrop-blur-sm p-3 w-28 text-center">
               <div className="text-cyan-400 font-mono text-xl">{mods.reduce((acc, mod) => acc + (mod.downloads || 0), 0)}</div>
               <div className="text-zinc-500 text-[10px] tracking-widest uppercase">Descargas</div>
+            </div>
+            <div className="border border-zinc-800 bg-zinc-950/60 backdrop-blur-sm p-3 w-28 text-center">
+              <div className="text-cyan-400 font-mono text-xl">{comments.length}</div>
+              <div className="text-zinc-500 text-[10px] tracking-widest uppercase">Comentarios</div>
             </div>
           </div>
 
@@ -237,12 +282,24 @@ export default function App() {
         </div>
       </section>
 
-      {/* Warning Banner */}
-      <div className="relative z-10 bg-amber-500/10 border-y border-amber-500/20 px-4 py-2 text-center font-mono text-xs tracking-widest">
-        <p className="text-amber-400 flex items-center justify-center gap-2 uppercase">
-          <Info className="w-4 h-4 shrink-0" />
-          <span className="truncate">La subida y eliminación de APKs funciona en tiempo real.</span>
-        </p>
+      {/* Community Announcement & Status Banner */}
+      <div className="relative z-10 bg-cyan-950/20 border-y border-cyan-500/20 px-4 py-2.5 text-center font-mono text-xs tracking-widest overflow-hidden">
+        <div className="flex items-center justify-center gap-3 text-cyan-300 uppercase flex-wrap">
+          <span className="flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 px-2 py-0.5 border border-emerald-500/30 text-[10px] font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            ONLINE
+          </span>
+          <span className="hidden sm:inline text-zinc-600">|</span>
+          <span className="flex items-center gap-1.5 text-zinc-200">
+            <Zap className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <span>REPOSITORIO EXCLUSIVO DE MODS & HERRAMIENTAS MOBILADOR</span>
+          </span>
+          <span className="hidden sm:inline text-zinc-600">|</span>
+          <span className="flex items-center gap-1.5 text-zinc-400">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="text-zinc-300">ENLACES DIRECTOS Y VERIFICADOS</span>
+          </span>
+        </div>
       </div>
 
       <main id="mods" className="relative z-10 max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-16 min-h-[500px]">
@@ -287,7 +344,15 @@ export default function App() {
             </div>
             {searchResults.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {searchResults.map(mod => <ModCard key={mod.id} mod={mod} onDelete={isAdmin ? handleDeleteMod : undefined} onDownload={handleIncrementDownload} />)}
+                {searchResults.map(mod => (
+                  <ModCard 
+                    key={mod.id} 
+                    mod={mod} 
+                    onEdit={isAdmin ? (m) => setEditingMod(m) : undefined}
+                    onDelete={isAdmin ? handleDeleteMod : undefined} 
+                    onDownload={handleIncrementDownload} 
+                  />
+                ))}
               </div>
             ) : (
               <div className="text-center py-20 border border-dashed border-zinc-700/50 bg-zinc-900/20 backdrop-blur-sm">
@@ -406,11 +471,39 @@ export default function App() {
             {selectedCategory && !selectedCreator && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
                 {currentCategoryAuthors.length > 0 ? currentCategoryAuthors.map(author => (
-                  <button
+                  <div
                     key={author.id}
                     onClick={() => setSelectedCreator(author.name)}
-                    className="p-6 border border-zinc-800 bg-zinc-900/30 hover:bg-cyan-500/10 hover:border-cyan-400 transition-all flex flex-col items-center justify-center text-center group"
+                    className="p-6 border border-zinc-800 bg-zinc-900/30 hover:bg-cyan-500/10 hover:border-cyan-400 transition-all flex flex-col items-center justify-center text-center group relative cursor-pointer"
                   >
+                    {isAdmin && (
+                      <div className="absolute top-2 right-2 flex items-center gap-1 z-20">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingAuthor(author);
+                          }}
+                          className="p-1.5 bg-black/80 border border-zinc-800 hover:border-cyan-400 hover:bg-cyan-500/20 text-zinc-500 hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-all"
+                          title="Editar Creador"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`¿Estás seguro de que deseas eliminar al creador "${author.name}"?`)) {
+                              handleDeleteAuthor(author.id);
+                            }
+                          }}
+                          className="p-1.5 bg-black/80 border border-zinc-800 hover:border-red-500 hover:bg-red-500/20 text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                          title="Eliminar Creador"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                     <div className="w-16 h-16 rounded-full bg-zinc-950 border border-zinc-700 group-hover:border-cyan-400 mb-4 overflow-hidden flex items-center justify-center relative">
                       {author.imageUrl ? (
                         <img src={author.imageUrl} alt={author.name} className="w-full h-full object-cover" />
@@ -420,7 +513,7 @@ export default function App() {
                       <div className="absolute inset-0 bg-cyan-500/0 group-hover:bg-cyan-500/10 transition-colors pointer-events-none"></div>
                     </div>
                     <span className="font-mono text-sm tracking-widest uppercase text-zinc-300 group-hover:text-cyan-400">{author.name}</span>
-                  </button>
+                  </div>
                 )) : (
                   <div className="col-span-full text-center py-12 text-zinc-500 font-mono">No hay creadores registrados en esta categoría.</div>
                 )}
@@ -432,8 +525,20 @@ export default function App() {
               <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col gap-3"}>
                 {currentApks.length > 0 ? currentApks.map(mod => (
                   viewMode === 'grid' 
-                    ? <ModCard key={mod.id} mod={mod} onDelete={isAdmin ? handleDeleteMod : undefined} onDownload={handleIncrementDownload} /> 
-                    : <ModListRow key={mod.id} mod={mod} onDelete={isAdmin ? handleDeleteMod : undefined} onDownload={handleIncrementDownload} />
+                    ? <ModCard 
+                        key={mod.id} 
+                        mod={mod} 
+                        onEdit={isAdmin ? (m) => setEditingMod(m) : undefined}
+                        onDelete={isAdmin ? handleDeleteMod : undefined} 
+                        onDownload={handleIncrementDownload} 
+                      /> 
+                    : <ModListRow 
+                        key={mod.id} 
+                        mod={mod} 
+                        onEdit={isAdmin ? (m) => setEditingMod(m) : undefined}
+                        onDelete={isAdmin ? handleDeleteMod : undefined} 
+                        onDownload={handleIncrementDownload} 
+                      />
                 )) : (
                   <div className="col-span-full text-center py-12 text-zinc-500 font-mono">No se encontraron versiones para este creador.</div>
                 )}
@@ -443,13 +548,64 @@ export default function App() {
         )}
       </main>
 
+      {/* Community Comments & Reviews Section */}
+      <CommunityComments
+        comments={comments}
+        mods={mods}
+        currentUser={user}
+        isAdmin={isAdmin}
+        onAddComment={addComment}
+        onDeleteComment={deleteComment}
+        onSelectMod={(modName, category) => {
+          setSelectedCategory(category);
+          setSelectedCreator(null);
+          setSearchQuery(modName);
+          const element = document.getElementById('mods');
+          if (element) element.scrollIntoView({ behavior: 'smooth' });
+        }}
+      />
+
+      {/* Footer */}
+      <footer className="relative z-10 border-t border-zinc-900 bg-black/80 py-10 px-4 text-center font-mono text-xs text-zinc-600">
+        <div className="max-w-screen-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-zinc-400">
+            <span className="text-cyan-400 font-bold">MUNDO MOBILADOR</span>
+            <span>—</span>
+            <span>Repositorio & Comunidad Gamer VIP</span>
+          </div>
+          <div className="flex items-center gap-6 text-zinc-500 text-xs">
+            <a href="#mods" className="hover:text-cyan-400 transition-colors">Catálogo de Mods</a>
+            <a href="#comunidad" className="hover:text-cyan-400 transition-colors">Muro de Comentarios</a>
+            <button onClick={() => setIsCommunityModalOpen(true)} className="hover:text-cyan-400 transition-colors">
+              Comunidad & Redes
+            </button>
+          </div>
+        </div>
+      </footer>
+
       <UploadModal 
         isOpen={isUploadModalOpen} 
         onClose={() => setIsUploadModalOpen(false)} 
         onUpload={handleUpload}
         authors={authors}
         onAddAuthor={handleAddAuthor}
+        onEditAuthor={(author) => setEditingAuthor(author)}
         onDeleteAuthor={handleDeleteAuthor}
+      />
+
+      <EditModModal
+        isOpen={!!editingMod}
+        onClose={() => setEditingMod(null)}
+        mod={editingMod}
+        authors={authors}
+        onSave={handleEditMod}
+      />
+
+      <EditAuthorModal
+        isOpen={!!editingAuthor}
+        onClose={() => setEditingAuthor(null)}
+        author={editingAuthor}
+        onSave={handleEditAuthor}
       />
 
       <CommunityModal 

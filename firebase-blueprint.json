@@ -44,6 +44,21 @@
         "isAdmin": { "type": "boolean" }
       },
       "required": ["isAdmin"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "Public community comment or review.",
+      "type": "object",
+      "properties": {
+        "authorName": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "taggedModId": { "type": "string" },
+        "taggedModName": { "type": "string" },
+        "userId": { "type": "string" },
+        "userAvatar": { "type": "string" }
+      },
+      "required": ["authorName", "content", "createdAt"]
     }
   },
   "firestore": {
@@ -54,6 +69,10 @@
     "authors/{authorId}": {
       "schema": "Author",
       "description": "List of authors."
+    },
+    "comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Community comments."
     },
     "userRoles/{userId}": {
       "schema": "UserRole",

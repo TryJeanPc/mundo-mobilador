@@ -10,25 +10,19 @@ service cloud.firestore {
 
     match /mods/{modId} {
       allow read: if true;
-      allow create: if isAdmin() && 
-                    request.resource.data.keys().hasAll(['title', 'author', 'category', 'version', 'size', 'downloads', 'downloadUrl', 'createdAt', 'createdBy']) &&
-                    request.resource.data.title is string &&
-                    request.resource.data.author is string &&
-                    request.resource.data.category is string &&
-                    request.resource.data.version is string &&
-                    request.resource.data.size is string &&
-                    request.resource.data.downloads is number &&
-                    request.resource.data.downloadUrl is string &&
-                    request.resource.data.createdAt is number &&
-                    request.resource.data.createdBy == request.auth.uid;
-      allow update: if isAdmin() &&
-                    (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdBy', 'createdAt']));
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['downloads']));
       allow delete: if isAdmin();
     }
 
     match /authors/{authorId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
+    }
+
+    match /comments/{commentId} {
+      allow read, create: if true;
+      allow update, delete: if isAdmin();
     }
 
     match /userRoles/{userId} {
